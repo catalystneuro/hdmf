@@ -395,7 +395,7 @@ class GenericDataChunkIterator(AbstractDataChunkIterator):
         try:
             buffer_selection = next(self.buffer_selection_generator)
             mem_before = psutil.virtual_memory().used / 1e9
-            print(f"before: {mem_before}")
+            print(f"\nbefore: {mem_before}")
             data = self._get_data(selection=buffer_selection)
             mem_after = psutil.virtual_memory().used / 1e9
             print(f"after: {mem_after}")
