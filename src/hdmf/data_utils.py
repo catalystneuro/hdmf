@@ -301,22 +301,26 @@ class GenericDataChunkIterator(AbstractDataChunkIterator):
         Keeps the dimensional ratios of the original data.
         """
         chunk_mb = getargs("chunk_mb", kwargs)
-        assert chunk_mb > 0, f"chunk_mb ({chunk_mb}) must be greater than zero!"
+        
+        def _calculate_chunk_shape(
+            chunk_mb: float | int, maxshape: Tuple[int, ...], itemsize: int
+        ) -> Tuple[int, ...]:
+            assert chunk_mb > 0, f"chunk_mb ({chunk_mb}) must be greater than zero!"
+    
+            n_dims = len(maxshape)
+            chunk_bytes = chunk_mb * 1e6
+    
+            min_maxshape = min(maxshape)
+            v = tuple(math.floor(maxshape_axis / min_maxshape) for maxshape_axis in maxshape)
+            prod_v = math.prod(v)
+            while prod_v * itemsize > chunk_bytes and prod_v != 1:
+                non_unit_min_v = min(x for x in v if x != 1)
+                v = tuple(math.floor(x / non_unit_min_v) if x != 1 else x for x in v)
+                prod_v = math.prod(v)
+            k = math.floor((chunk_bytes / (prod_v * itemsize)) ** (1 / n_dims))
+            return tuple([min(k * x, maxshape[dim]) for dim, x in enumerate(v)])
 
-        n_dims = len(self.maxshape)
-        itemsize = self.dtype.itemsize
-        chunk_bytes = chunk_mb * 1e6
-
-        min_maxshape = min(self.maxshape)
-        v = tuple(math.floor(maxshape_axis / min_maxshape) for maxshape_axis in self.maxshape)
-        prod_v = functools.reduce(operator.mul, v, 1)  # TODO: replace with math.prod when Python 3.7 support is dropped
-        while prod_v * itemsize > chunk_bytes and prod_v != 1:
-            non_unit_min_v = min(x for x in v if x != 1)
-            v = tuple(math.floor(x / non_unit_min_v) if x != 1 else x for x in v)
-            # TODO: replace with math.prod when Python 3.7 support is dropped
-            prod_v = functools.reduce(operator.mul, v, 1)
-        k = math.floor((chunk_bytes / (prod_v * itemsize)) ** (1 / n_dims))
-        return tuple([min(k * x, self.maxshape[dim]) for dim, x in enumerate(v)])
+        return _calculate_chunk_shape(chunk_mb=chunk_mb, maxshape=self.maxshape, itemsize=self.dtype.itemsize)
 
     @docval(
         dict(
